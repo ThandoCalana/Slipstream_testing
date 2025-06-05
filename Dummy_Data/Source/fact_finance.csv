@@ -1,0 +1,21 @@
+finance_id,account_id,date_id,amount,currency,description,department_id
+1,2,9,8180.83,ZAR,Adjustment,1
+2,3,3,-5357.94,USD,Adjustment,3
+3,4,5,-900.81,USD,Expense,5
+4,5,1,7273.38,USD,Adjustment,2
+5,3,8,4351.03,USD,Asset Purchase,5
+6,4,8,-477.25,USD,Adjustment,1
+7,5,4,-5799.63,USD,Adjustment,5
+8,2,3,5495.78,EUR,Asset Purchase,5
+9,2,6,-1115.73,ZAR,Revenue,5
+10,1,6,8761.86,EUR,Adjustment,4
+11,1,5,3617.97,ZAR,Liability Payment,5
+12,5,10,-9703.55,ZAR,Liability Payment,3
+13,3,4,5899.34,ZAR,Revenue,4
+14,5,3,413.84,EUR,Asset Purchase,4
+15,3,7,3227.1,ZAR,Revenue,1
+16,1,10,9724.06,EUR,Expense,1
+17,5,5,-1812.85,ZAR,Revenue,3
+18,5,1,5679.89,ZAR,Adjustment,1
+19,4,1,-9171.16,ZAR,Adjustment,4
+20,4,4,-6996.85,ZAR,Expense,1
