@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 version: 2
 
 # === SNAPSHOTS ===
@@ -103,3 +104,110 @@ models:
 
 
 
+=======
+version: 2
+
+# === SNAPSHOTS ===
+snapshots:
+  - name: snap_tags
+    description: |
+      Snapshot table tracking user tags with historical changes.
+      Tests ensure data integrity and source-target consistency.
+    columns:
+      - name: id
+        description: Surrogate key for the snapshot record (unique identifier).
+        tests:
+          - unique           # Ensure no duplicate snapshot rows.
+          - not_null         # ID should never be null.
+      - name: user_id
+        description: User identifier.
+        tests:
+          - not_null         # User ID is mandatory for every record.
+      - name: movie_id
+        description: Movie identifier.
+        tests:
+          - not_null         # Movie ID cannot be missing.
+      - name: tag
+        description: Tag applied by the user.
+        tests:
+          - not_null         # Tag must exist on every row.
+    tests:
+      - dbt_utils.equal_rowcount:
+          compare_model: ref('src_tags')
+          # Check source and snapshot row counts are equal to catch missing or extra rows.
+
+# === MODELS (Dimensions and Facts) ===
+models:
+
+  # Dimension table for movies
+  - name: dim_movies
+    description: |
+      Cleansed dimension table for movies, including standardized title and genre.
+    columns:
+      - name: movie_id
+        description: Primary key for movies.
+        tests:
+          - not_null         # Movie ID must always be present.
+      - name: movie_title
+        description: Standardized movie title.
+        tests:
+          - not_null         # Title should never be null.
+
+  # Incremental fact table for user ratings
+  - name: fct_rating
+    description: |
+      Incremental fact table capturing user ratings for movies.
+      Only new ratings are appended based on timestamp.
+    columns:
+      - name: user_id
+        description: User who gave the rating.
+        tests:
+          - not_null         # User ID required for each rating.
+      - name: movie_id
+        description: Movie being rated.
+        tests:
+          - not_null         # Movie ID must be present.
+      - name: rating
+        description: Rating value.
+        tests:
+          - not_null         # Rating cannot be null.
+    tests:
+      - dbt_utils.equal_rowcount:
+          compare_model: ref('src_rating')
+          # Validate that fact row count matches source data row count.
+    tests:
+      # Custom test: sum of ratings between source and fact table must be equal
+      - dbt_utils.expression_is_true:
+          expression: |
+            (
+              select sum(rating) from {{ ref('src_ratings') }}
+            ) = (
+              select sum(rating) from {{ ref('fct_rating') }}
+            )
+
+  # Full refresh fact table for genome scores
+  - name: fct_genome_score
+    description: |
+      Fact table with genome scores linking movies and tags.
+      Fully refreshed on each run.
+    columns:
+      - name: movie_id
+        description: Movie identifier.
+        tests:
+          - not_null         # Must exist for each row.
+      - name: tag_id
+        description: Tag identifier.
+        tests:
+          - not_null         # Must be populated.
+      - name: relevance_score
+        description: Score relevance metric.
+        tests:
+          - not_null         # Must be present and valid.
+    tests:
+      - dbt_utils.equal_rowcount:
+          compare_model: ref('src_genome_score')
+          # Ensure source and target counts match.
+
+
+
+>>>>>>> a27ec3f585ae45ae540a328a0c9097d72c24c596

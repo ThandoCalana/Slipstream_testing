@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 version: 2
 
 sources:
@@ -16,3 +17,23 @@ sources:
         identifier: raw_genome_scores
       - name: r_links
         identifier: raw_links
+=======
+version: 2
+
+sources:
+  - name: netflix
+    schema: raw
+    tables:
+      - name: r_movies
+        identifier: raw_movies
+      - name: r_ratings
+        identifier: raw_ratings
+      - name: r_tags
+        identifier: raw_tags
+      - name: r_genome_tags
+        identifier: raw_genome_tags
+      - name: r_genome_scores
+        identifier: raw_genome_scores
+      - name: r_links
+        identifier: raw_links
+>>>>>>> a27ec3f585ae45ae540a328a0c9097d72c24c596
