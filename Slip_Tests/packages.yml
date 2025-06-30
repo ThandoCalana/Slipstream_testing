@@ -1,9 +1,0 @@
-<<<<<<< HEAD
-packages:
-  - package: dbt-labs/dbt_utils
-    version: 1.3.0
-=======
-packages:
-  - package: dbt-labs/dbt_utils
-    version: 1.3.0
->>>>>>> a27ec3f585ae45ae540a328a0c9097d72c24c596
