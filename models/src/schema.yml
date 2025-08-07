@@ -1,0 +1,47 @@
+version: 2
+
+sources:
+  - name: airbnb
+    schema: raw
+    tables:
+      - name: raw_customers
+        description: Raw customer data from source system
+        columns:
+          - name: customer_id
+          - name: name
+          - name: region
+          - name: dob
+          - name: load_timestamp
+          - name: hash_column
+
+      - name: raw_inventory_snapshot
+        description: Raw snapshot of inventory levels
+        columns:
+          - name: snapshot_date
+          - name: product_id
+          - name: warehouse_id
+          - name: quantity_on_hand
+          - name: load_timestamp
+          - name: hash_column
+
+      - name: raw_orders
+        description: Raw order transactions
+        columns:
+          - name: order_id
+          - name: customer_id
+          - name: product_id
+          - name: quantity
+          - name: amount
+          - name: order_date
+          - name: load_timestamp
+          - name: hash_column
+
+      - name: raw_products
+        description: Raw product master data
+        columns:
+          - name: product_id
+          - name: item
+          - name: category
+          - name: price
+          - name: load_timestamp
+          - name: hash_column
