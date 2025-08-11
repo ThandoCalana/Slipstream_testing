@@ -55,7 +55,7 @@
     {% set trg_pkey               = row['TRG_PKEY_COL'] %}
     {% set trg_skey               = row['TRG_SKEY_COL'] if row['TRG_SKEY_COL'] else NULL %}
     {% set trg_hash_col           = row['TRG_HASH_COL'] if row['TRG_HASH_COL'] else NULL %}
-    {% set trg_model              = row['TRG_DB'] ~ '.' ~ row['TRG_SCHEMA'] ~ '.' ~ row['TRG_TABLE'] %}
+    {% set trg_model              = (row['TRG_DB'] ~ '.' ~ row['TRG_SCHEMA'] ~ '.' ~ row['TRG_TABLE']) if row['TRG_TABLE'] else NULL %}
     {% set trg_effective_date     = row['TRG_EFFECTIVE_DATE'] if row['TRG_EFFECTIVE_DATE'] else NULL %}
     {% set trg_expiration_date    = row['TRG_EXPIRATION_DATE'] if row['TRG_EXPIRATION_DATE'] else NULL %}
     {% set trg_layer              = row['TRG_LAYER_TYPE'] if row['TRG_LAYER_TYPE'] else NULL %}
@@ -63,12 +63,13 @@
     {% do log("Running " ~ test_name ~ " on " ~ src_model ~ " (Config ID: " ~ test_config_id ~ ")", info=True) %}
 
     {% set watermark_query %}
-      SELECT LAST_PROCESSED_TIMESTAMP
+      SELECT LAST_PROCESSED_TS
       FROM AIRBNB.TESTING.HIGH_WATERMARKS
       WHERE TABLE_NAME = '{{ src_model }}'
     {% endset %}
 
     {% set watermark_result = run_query(watermark_query) %}
+    
     {% if watermark_result %}
       {% set high_watermark = watermark_result.columns[0].values()[0] %}
     {% else %}

@@ -1,9 +1,9 @@
-{% macro get_latest_high_watermark(table_name) %}
-    
+{% macro get_latest_hwm(model_name) %}
+
     {% set query %}
-        SELECT last_processed_ts
-        FROM TESTING.HIGH_WATERMARK
-        WHERE table_name = '{{ table_name }}'
+        SELECT current_process_ts
+        FROM AIRBNB.TESTING.HIGH_WATERMARK
+        WHERE table_name = '{{ model_name }}'
     {% endset %}
 
     {% set result = run_query(query) %}
@@ -13,4 +13,8 @@
         {{ return('1900-01-01 00:00:00') }}
     {% endif %}
 
+    {{log('Results: '~result, info=True)}}
+
+    {{ return(result) }}
+    
 {% endmacro %}

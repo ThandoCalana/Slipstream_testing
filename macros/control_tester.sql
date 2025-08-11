@@ -1,4 +1,4 @@
-{% macro control_tester(test_name_to_run='column_presence_and_types') %}
+{% macro control_tester(test_name_to_run='hash_match') %}
 
   {% set configs_query %}
     SELECT
@@ -13,8 +13,8 @@
       src.SKEY_COL_NAME AS SRC_SKEY_COL,
       src.HASH_COL_NAME AS SRC_HASH_COL,
       src.TIMESTAMP_COL_NAME AS SRC_LOAD_TIMESTAMP,
-      src.EFFECTIVE_DATE_COL_NAME AS EFFECTIVE_DATE,
-      src.EXPIRATION_DATE_COL_NAME   AS EXPIRATION_DATE,
+      src.EFFECTIVE_DATE_COL_NAME AS SRC_EFFECTIVE_DATE,
+      src.EXPIRATION_DATE_COL_NAME   AS SRC_EXPIRATION_DATE,
       src.LAYER_TYPE AS SRC_LAYER_TYPE,
       config.TRG_ENTITY_ID,
       trg.TABLE_NAME   AS TRG_TABLE,
@@ -25,7 +25,9 @@
       trg.PKEY_COL_NAME AS TRG_PKEY_COL,
       trg.SKEY_COL_NAME AS TRG_SKEY_COL,
       trg.HASH_COL_NAME AS TRG_HASH_COL,
-      trg.TIMESTAMP_COL_NAME AS TRG_LOAD_TIMESTAMP,      
+      trg.TIMESTAMP_COL_NAME AS TRG_LOAD_TIMESTAMP,
+      trg.EFFECTIVE_DATE_COL_NAME AS TRG_EFFECTIVE_DATE,
+      trg.EXPIRATION_DATE_COL_NAME   AS TRG_EXPIRATION_DATE,     
     FROM AIRBNB.TESTING.TEST_CONFIG config
     JOIN AIRBNB.TESTING.TEST_METADATA metadata ON config.TEST_ID = metadata.TEST_ID
     JOIN AIRBNB.TESTING.ENTITY_METADATA src ON config.SRC_ENTITY_ID = src.ENTITY_ID
@@ -41,6 +43,7 @@
     {% set test_id            = row['TEST_ID'] %}
     {% set test_name          = row['TEST_NAME'] %}
     {% set src_model          = row['SRC_DB'] ~ '.' ~ row['SRC_SCHEMA'] ~ '.' ~ row['SRC_TABLE'] %}
+    {% set src_table          = row['SRC_TABLE'] %}
     {% set src_load_timestamp = row['SRC_LOAD_TIMESTAMP'] %}
     {% set trg_load_timestamp = row['TRG_LOAD_TIMESTAMP'] if row['TRG_LOAD_TIMESTAMP'] else NULL %}
     {% set src_nkey           = row['SRC_NKEY_COL'] %}
@@ -54,22 +57,52 @@
     {% set trg_pkey           = row['TRG_PKEY_COL'] %}
     {% set trg_skey           = row['TRG_SKEY_COL'] if row['TRG_SKEY_COL'] else NULL %}
     {% set trg_hash_col       = row['TRG_HASH_COL'] if row['TRG_HASH_COL'] else NULL %}
-    {% set trg_model          = row['TRG_DB'] ~ '.' ~ row['TRG_SCHEMA'] ~ '.' ~ row['TRG_TABLE'] %}
+    {% set trg_model          = (row['TRG_DB'] ~ '.' ~ row['TRG_SCHEMA'] ~ '.' ~ row['TRG_TABLE']) if row['TRG_TABLE'] else NULL %}
     {% set trg_effective_date = row['TRG_EFFECTIVE_DATE'] if row['TRG_EFFECTIVE_DATE'] else NULL %}
     {% set trg_expiration_date = row['TRG_EXPIRATION_DATE'] if row['TRG_EXPIRATION_DATE'] else NULL %}
     {% set trg_layer              = row['TRG_LAYER_TYPE'] if row['TRG_LAYER_TYPE'] else NULL %}
 
-
     {% do log("Running test: " ~ test_name ~ " on " ~ src_model ~ " (Config ID: " ~ test_config_id ~ ")", info=True) %}
+    
 
-  
+    {% set last_ts = get_latest_hwm(src_table) %}
+
+    {{ log(src_model ~ ' ' ~ src_load_timestamp ~ ' ' ~last_ts ~ ' ' ~ src_table, info=True)}}
 
 
-    {% if test_name == "column_presence_and_types" %}
-      {% do column_presence_and_types(src_model, src_schema, test_id, test_config_id, trg_model, trg_schema) %}
-  
+    {% set filtered_model %}
+        
+        SELECT *
+        FROM {{ src_model}} 
+        WHERE {{ ts_col }} > {{ last_ts }}
+
+    {% endset %}
+
+    {% set filtered_src = run_query(filtered_model) %}
+    
+    {% if trg_model %}
+      {% set last_trg_ts = get_latest_hwm(src_table) %}
+      {% set filtered_trg = get_filtered_model(trg_model, trg_load_timestamp) %}
+
+      {% set filtered_model %}
+        
+        SELECT *
+        FROM {{ trg_model }}
+        WHERE {{ ts_col }} '>' {{ last_trg_ts }}
+
+      {% endset %}
+
+      {% set filtered_trg = run_query(filtered_model) %}
+
     {% endif %}
 
+
+    {% if test_name == "hash_match" %}
+      {% do hash_match(filtered_src, src_pkey, src_hash_col, src_load_timestamp, src_filter_condition, test_id, test_config_id, filtered_trg, trg_pkey, trg_hash_col, trg_load_timestamp) %}
+
+      {% do capture_and_update_latest_ts(filtered_src, src_load_timestamp) %}
+      
+    {% endif %}
 
   {% endfor %}
 
