@@ -58,49 +58,31 @@
     {% set trg_skey           = row['TRG_SKEY_COL'] if row['TRG_SKEY_COL'] else NULL %}
     {% set trg_hash_col       = row['TRG_HASH_COL'] if row['TRG_HASH_COL'] else NULL %}
     {% set trg_model          = (row['TRG_DB'] ~ '.' ~ row['TRG_SCHEMA'] ~ '.' ~ row['TRG_TABLE']) if row['TRG_TABLE'] else NULL %}
+    {% set trg_table        = row['TRG_TABLE'] if row['TRG_TABLE'] else NULL %}
     {% set trg_effective_date = row['TRG_EFFECTIVE_DATE'] if row['TRG_EFFECTIVE_DATE'] else NULL %}
     {% set trg_expiration_date = row['TRG_EXPIRATION_DATE'] if row['TRG_EXPIRATION_DATE'] else NULL %}
     {% set trg_layer              = row['TRG_LAYER_TYPE'] if row['TRG_LAYER_TYPE'] else NULL %}
 
     {% do log("Running test: " ~ test_name ~ " on " ~ src_model ~ " (Config ID: " ~ test_config_id ~ ")", info=True) %}
     
-
-    {% set last_ts = get_latest_hwm(src_table) %}
-
-    {{ log(src_model ~ ' ' ~ src_load_timestamp ~ ' ' ~last_ts ~ ' ' ~ src_table, info=True)}}
-
-
-    {% set filtered_model %}
-        
-        SELECT *
-        FROM {{ src_model}} 
-        WHERE {{ ts_col }} > {{ last_ts }}
-
-    {% endset %}
-
-    {% set filtered_src = run_query(filtered_model) %}
+    {% set src_last_ts = get_latest_hwm(src_table) %}
+    {% set filtered_src = get_filtered_model(src_model, src_load_timestamp) %}
     
     {% if trg_model %}
-      {% set last_trg_ts = get_latest_hwm(src_table) %}
+
+      {% set trg_last_ts = get_latest_hwm(trg_table) %}
       {% set filtered_trg = get_filtered_model(trg_model, trg_load_timestamp) %}
-
-      {% set filtered_model %}
-        
-        SELECT *
-        FROM {{ trg_model }}
-        WHERE {{ ts_col }} '>' {{ last_trg_ts }}
-
-      {% endset %}
-
-      {% set filtered_trg = run_query(filtered_model) %}
 
     {% endif %}
 
-
     {% if test_name == "hash_match" %}
-      {% do hash_match(filtered_src, src_pkey, src_hash_col, src_load_timestamp, src_filter_condition, test_id, test_config_id, filtered_trg, trg_pkey, trg_hash_col, trg_load_timestamp) %}
+      {% do hash_match(src_model, src_pkey, src_hash_col, test_id, test_config_id, 
+        trg_model, trg_pkey, trg_hash_col, src_load_timestamp, trg_load_timestamp) %}
+      {% do capture_and_update_latest_ts(src_model, src_load_timestamp) %}
 
-      {% do capture_and_update_latest_ts(filtered_src, src_load_timestamp) %}
+      {% if trg_model %}
+        {% do capture_and_update_latest_ts(trg_model, trg_load_timestamp) %}
+      {% endif %}
       
     {% endif %}
 

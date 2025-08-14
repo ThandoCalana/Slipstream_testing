@@ -62,6 +62,7 @@
 
     {% do log("Running " ~ test_name ~ " on " ~ src_model ~ " (Config ID: " ~ test_config_id ~ ")", info=True) %}
 
+    
     {% set watermark_query %}
       SELECT LAST_PROCESSED_TS
       FROM AIRBNB.TESTING.HIGH_WATERMARKS

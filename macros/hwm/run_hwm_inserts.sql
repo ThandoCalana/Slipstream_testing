@@ -5,7 +5,7 @@
     {% for table in table_names %}
         {% do run_query(
             "INSERT INTO AIRBNB.TESTING.HIGH_WATERMARK (TABLE_NAME, PREVIOUS_PROCESS_TS, CURRENT_PROCESS_TS)
-             SELECT '" ~ table ~ "', NULL, NULL
+             SELECT '" ~ table ~ "', '1900-01-01 00:00:00', '1900-01-01 00:00:00'
              WHERE NOT EXISTS (
                  SELECT 1
                  FROM AIRBNB.TESTING.HIGH_WATERMARK

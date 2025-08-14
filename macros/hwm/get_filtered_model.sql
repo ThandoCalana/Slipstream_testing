@@ -1,18 +1,9 @@
-{% macro get_filtered_model(model_name, ts_col) %}
-
-    {% set table_name = model_name.split('.')[-1] %}
-
+{% macro get_filtered_model(model_name, ts_col, alias) %}
+    {% set table_parts = model_name.split(".") %}
+    {% set table_name = table_parts[2] %}
     {% set last_ts = get_latest_hwm(table_name) %}
-    {% set query %}
-        SELECT *
-        FROM {{ model_name }}
-        WHERE {{ ts_col }} > '{{ last_ts }}'
-    {% endset %}
 
-    {% set result = run_query(query) %}
 
-    {{return(result)}}
-
+    {{ return("(SELECT * FROM " ~ model_name ~
+              " WHERE " ~ ts_col ~ " > TO_TIMESTAMP_NTZ('" ~ last_ts ~ "')) " ~ alias) }}
 {% endmacro %}
-
-
