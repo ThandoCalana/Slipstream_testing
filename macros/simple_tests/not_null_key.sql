@@ -1,12 +1,13 @@
-{% macro not_null_key(model_name, model_schema, model_db, test_id, test_config_id, keys) %}
+{% macro not_null_key(model_name, test_id, test_config_id, ts_col, keys) %}
 
   {% set test_name = 'not_null_key' %}
   {% set issues = [] %}
-  {% set table_name = model_db ~ '.' ~ model_schema ~ '.' ~ model_name %}
+
+  {% set src_filtered = get_filtered_model(model_name, ts_col, 's') %}
 
   {% for key in keys %}
     {% set query %}
-      SELECT COUNT(*) FROM {{ table_name }}
+      SELECT COUNT(*) FROM {{ src_filtered }}
       WHERE {{ key }} IS NULL
     {% endset %}
 

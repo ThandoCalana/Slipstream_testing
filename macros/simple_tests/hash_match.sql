@@ -3,20 +3,20 @@
 
   {% set test_name = 'hash_match' %}
 
-  {% set src_filtered = get_filtered_model(src_model, src_ts_col, 's') %}
-  {% set trg_filtered = get_filtered_model(trg_model, trg_ts_col, 't') %}
+  {% set src_filtered = get_filtered_model(src_model, src_ts_col) %}
+  {% set trg_filtered = get_filtered_model(trg_model, trg_ts_col) %}
 
   {% set query %}
     SELECT COUNT(*) AS mismatch_count
-    FROM {{ src_filtered }}
-    INNER JOIN {{ trg_filtered }}
+    FROM {{ src_filtered }} AS s
+    INNER JOIN {{ trg_filtered }} AS s
       ON s.{{ src_pkey }} = t.{{ trg_pkey }}
     WHERE
       (s.{{ src_hash_col }} IS NULL AND t.{{ trg_hash_col }} IS NOT NULL) OR
       (s.{{ src_hash_col }} IS NOT NULL AND t.{{ trg_hash_col }} IS NULL) OR
       (s.{{ src_hash_col }} != t.{{ trg_hash_col }})
   {% endset %}
-  {{ log(query, info=True)}}
+
   {% set result = run_query(query) %}
   {% set mismatches = result.columns[0].values()[0] %}
   {% set test_result = 'PASS' if mismatches == 0 else 'FAIL' %}

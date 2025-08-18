@@ -1,4 +1,4 @@
-{% macro control_tester(test_name_to_run='hash_match') %}
+{% macro control_tester(test_name_to_run='scd_dummy_records_exist') %}
 
   {% set configs_query %}
     SELECT
@@ -43,6 +43,7 @@
     {% set test_id            = row['TEST_ID'] %}
     {% set test_name          = row['TEST_NAME'] %}
     {% set src_model          = row['SRC_DB'] ~ '.' ~ row['SRC_SCHEMA'] ~ '.' ~ row['SRC_TABLE'] %}
+    {% set src_schema         = row['SRC_SCHEMA'] %}
     {% set src_table          = row['SRC_TABLE'] %}
     {% set src_load_timestamp = row['SRC_LOAD_TIMESTAMP'] %}
     {% set trg_load_timestamp = row['TRG_LOAD_TIMESTAMP'] if row['TRG_LOAD_TIMESTAMP'] else NULL %}
@@ -65,23 +66,16 @@
 
     {% do log("Running test: " ~ test_name ~ " on " ~ src_model ~ " (Config ID: " ~ test_config_id ~ ")", info=True) %}
     
-    {% set src_last_ts = get_latest_hwm(src_table) %}
-    {% set filtered_src = get_filtered_model(src_model, src_load_timestamp) %}
+    {% set src_filtered = get_filtered_model(src_model, src_load_timestamp)[0] %}
+    {% set trg_filtered = get_filtered_model(trg_model, trg_load_timestamp)[0] if trg_model else NULL %}
+
+    {% if test_name == "scd_dummy_records_exist" %}
+      {% do scd_dummy_records_exist(src_model, src_pkey, test_id, test_config_id) %}
     
-    {% if trg_model %}
-
-      {% set trg_last_ts = get_latest_hwm(trg_table) %}
-      {% set filtered_trg = get_filtered_model(trg_model, trg_load_timestamp) %}
-
-    {% endif %}
-
-    {% if test_name == "hash_match" %}
-      {% do hash_match(src_model, src_pkey, src_hash_col, test_id, test_config_id, 
-        trg_model, trg_pkey, trg_hash_col, src_load_timestamp, trg_load_timestamp) %}
-      {% do capture_and_update_latest_ts(src_model, src_load_timestamp) %}
-
+      {% do capture_and_update_latest_ts(src_filtered, src_model, src_load_timestamp) %}
+      
       {% if trg_model %}
-        {% do capture_and_update_latest_ts(trg_model, trg_load_timestamp) %}
+        {% do capture_and_update_latest_ts(trg_filtered, trg_model, trg_load_timestamp) %}
       {% endif %}
       
     {% endif %}

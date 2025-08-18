@@ -1,13 +1,14 @@
-{% macro row_count_match(src_model, src_schema, src_db, test_id, test_config_id, trg_model, trg_schema, trg_db) %}
+{% macro row_count_match(src_model, test_id, test_config_id, trg_model, src_ts_col, trg_ts_col) %}
 
   {% set test_name = 'row_count_match' %}
-  {% set src_table = src_db ~ '.' ~ src_schema ~ '.' ~ src_model %}
-  {% set trg_table = trg_db ~ '.' ~ trg_schema ~ '.' ~ trg_model %}
+
+  {% set src_filtered = get_filtered_model(src_model, src_ts_col, 's') %}
+  {% set trg_filtered = get_filtered_model(trg_model, trg_ts_col, 't') %}
 
   {% set query %}
     SELECT
-      (SELECT COUNT(*) FROM {{ src_table }}) AS src_count,
-      (SELECT COUNT(*) FROM {{ trg_table }}) AS trg_count
+      (SELECT COUNT(*) FROM {{ src_filtered }}) AS src_count,
+      (SELECT COUNT(*) FROM {{ trg_filtered }}) AS trg_count
   {% endset %}
 
   {% set result = run_query(query) %}

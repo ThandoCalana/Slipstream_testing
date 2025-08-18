@@ -1,6 +1,11 @@
-{% macro scd_no_scd2_effective_date_gaps(model_name, test_id, test_config_id, skey) %}
+{% macro scd_no_scd2_effective_date_gaps(model_name, test_id, test_config_id, skey, ts_col) %}
 
     {% set test_name = 'scd_no_scd2_effective_date_gaps' %}
+
+    {% set filtered = get_filtered_model(model_name, ts_col) %}
+    {% set filtered_model = filtered[0] %}
+    {% set current_process_ts = filtered[1] %}
+    {% set previous_process_ts = filtered[2] %}
 
     {% set query %}
         SELECT * 
@@ -8,7 +13,7 @@
             SELECT {{ skey }},
                    EXPIRATION_DATE AS PREV_END,
                    LEAD(EFFECTIVE_DATE) OVER (PARTITION BY {{ skey }} ORDER BY EFFECTIVE_DATE) AS NEXT_START
-            FROM {{ model_name }}
+            FROM {{ filtered_model }}
         ) GAP
         WHERE PREV_END IS NOT NULL 
         AND PREV_END != NEXT_START
@@ -25,6 +30,6 @@
 
     {% set result_description = num_issues ~ ' effective date gaps found' %}
 
-    {% do log_test_result(model_name, test_name, test_id, test_config_id, test_result, result_description) %}
+    {% do log_test_result(model_name, test_name, test_id, test_config_id, test_result, result_description, None, previous_process_ts, current_process_ts) %}
 
 {% endmacro %}

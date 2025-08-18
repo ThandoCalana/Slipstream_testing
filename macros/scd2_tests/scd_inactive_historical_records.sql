@@ -2,9 +2,14 @@
 
     {% set test_name = 'scd_inactive_historical_records' %}
 
+    {% set filtered = get_filtered_model(model_name, ts_col) %}
+    {% set filtered_model = filtered[0] %}
+    {% set current_process_ts = filtered[1] %}
+    {% set previous_process_ts = filtered[2] %}
+
     {% set query %}
         SELECT *
-        FROM {{ model_name }}
+        FROM {{ filtered_model }}
         WHERE IS_ACTIVE != TRUE
         AND EXPIRATION_DATE IS NULL
     {% endset %}
@@ -20,6 +25,6 @@
 
     {% set result_description =  num_issues ~ ' active historical records' %}
 
-    {% do log_test_result(model_name, test_name, test_id, test_config_id, test_result, result_description) %}
+    {% do log_test_result(model_name, test_name, test_id, test_config_id, test_result, result_description, None, previous_process_ts, current_process_ts) %}
 
 {% endmacro %}

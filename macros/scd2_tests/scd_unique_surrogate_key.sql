@@ -1,11 +1,16 @@
-{% macro scd_unique_surrogate_key(model_name, test_id, test_config_id, key) %}
+{% macro scd_unique_surrogate_key(model_name, test_id, test_config_id, surrogate_key) %}
 
     {% set test_name = 'scd_unique_surrogate_key' %}
 
+    {% set filtered = get_filtered_model(model_name, ts_col) %}
+    {% set filtered_model = filtered[0] %}
+    {% set current_process_ts = filtered[1] %}
+    {% set previous_process_ts = filtered[2] %}
+
     {% set query %}
-        SELECT {{ key }},
-        COUNT({{ key }}) AS key_count
-        FROM {{ model_name }}
+        SELECT {{ surrogate_key }},
+        COUNT({{ surrogate_key }}) AS key_count
+        FROM {{ filtered_model }}
         GROUP BY {{ key }}
         HAVING key_count > 1
     {% endset %}
@@ -21,6 +26,6 @@
 
     {% set result_description = num_issues ~ ' duplicate ' ~ key %}
 
-    {% do log_test_result(model_name, test_name, test_id, test_config_id, test_result, result_description) %}
+    {% do log_test_result(model_name, test_name, test_id, test_config_id, test_result, result_description, None, previous_process_ts, current_process_ts) %}
 
 {% endmacro %}

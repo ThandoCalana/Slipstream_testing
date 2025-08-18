@@ -1,12 +1,11 @@
-{% macro scd_dummy_records_exist(model_name, model_schema, db, primary_key, test_id, test_config_id) %}
+{% macro scd_dummy_records_exist(model_name, primary_key, test_id, test_config_id) %}
 
   {% set test_name = 'scd_dummy_records_exist' %}
 
-  {% set src_table = db ~ '.' ~ model_schema ~ '.' ~ model_name %}
 
   {% set query %}
     SELECT COUNT(DISTINCT {{ primary_key }}) AS dummy_count
-    FROM {{ src_table }}
+    FROM {{ model_name }}
     WHERE {{ primary_key }} IN ('N/A', 'NOT_FOUND')
   {% endset %}
 
