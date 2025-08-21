@@ -5,6 +5,7 @@
       config.TEST_CONFIG_ID,
       config.TEST_ID,
       metadata.TEST_NAME,
+      metadata.TEST_TYPE,
       src.TABLE_NAME   AS SRC_TABLE,
       src.TABLE_SCHEMA AS SRC_SCHEMA,
       src.DB_NAME AS SRC_DB,
@@ -42,6 +43,7 @@
     {% set test_config_id     = row['TEST_CONFIG_ID'] %}
     {% set test_id            = row['TEST_ID'] %}
     {% set test_name          = row['TEST_NAME'] %}
+    {% set test_type          = row['TEST_TYPE'] %}
     {% set src_model          = row['SRC_DB'] ~ '.' ~ row['SRC_SCHEMA'] ~ '.' ~ row['SRC_TABLE'] %}
     {% set src_table          = row['SRC_TABLE'] %}
     {% set src_schema         = row['SRC_SCHEMA'] %}
@@ -70,81 +72,91 @@
     {% set src_filtered = get_filtered_model(src_model, src_load_timestamp)[0] %}
     {% set trg_filtered = get_filtered_model(trg_model, trg_load_timestamp)[0] if trg_model else NULL %}
 
-    {% if test_name == "row_count_match" %}
-      {% do row_count_match(src_model, test_id, test_config_id, trg_model, src_load_timestamp, trg_load_timestamp) %}
-
-    {% elif test_name == "not_null_key" %}
-      {% set keys = [] %}
-      {% if src_nkey is not none and src_nkey | trim != '' %}
-        {% do keys.append(src_nkey) %}
-      {% endif %}
-      {% if src_pkey is not none and src_pkey | trim != '' %}
-        {% do keys.append(src_pkey) %}
-      {% endif %}
-      {% if src_skey is not none and src_skey | trim != '' %}
-        {% do keys.append(src_skey) %}
-      {% endif %}
-
-      {% if keys | length > 0 %}
-        {% do not_null_key(src_model, test_id, test_config_id, src_load_timestamp, keys) %}
-      {% endif %}
-
-    {% elif test_name == "unique_records" %}
-      {% do unique_records(src_model, test_id, test_config_id, src_hash_col, src_load_timestamp) %}
-
-    {% elif test_name == "hash_match" %}
-      {% do hash_match(src_model, src_pkey, src_hash_col, test_id, test_config_id, 
-        trg_model, trg_pkey, trg_hash_col, src_load_timestamp, trg_load_timestamp) %}
-
-    {% elif test_name == "column_presence_and_types" %}
-      {% do column_presence_and_type(src_model, src_schema, test_id, test_config_id, trg_model, trg_schema) %}
+    {% if test_type == "1-1" %}
       {% do capture_and_update_latest_ts(src_filtered, src_model, src_load_timestamp) %}
 
-    {% elif test_name == "scd_dummy_records_exist" %}
-      {% do scd_dummy_records_exist(src_model, src_pkey, test_id, test_config_id, src_load_timestamp) %}
+      {% if test_name == "row_count_match" %}
+        {% do row_count_match(src_model, test_id, test_config_id, trg_model, src_load_timestamp, trg_load_timestamp) %}
+      
+      {% elif test_name == "not_null_key" %}
+        {% set keys = [] %}
+        {% if src_nkey is not none and src_nkey | trim != '' %}
+          {% do keys.append(src_nkey) %}
+        {% endif %}
+        {% if src_pkey is not none and src_pkey | trim != '' %}
+          {% do keys.append(src_pkey) %}
+        {% endif %}
+        {% if src_skey is not none and src_skey | trim != '' %}
+          {% do keys.append(src_skey) %}
+        {% endif %}
+
+        {% if keys | length > 0 %}
+          {% do not_null_key(src_model, test_id, test_config_id, src_load_timestamp, keys) %}
+        {% endif %}
+
+      {% elif test_name == "unique_records" %}
+        {% do unique_records(src_model, test_id, test_config_id, src_hash_col, src_load_timestamp) %}
+
+      {% elif test_name == "hash_match" %}
+        {% do hash_match(src_model, src_pkey, src_hash_col, test_id, test_config_id, 
+          trg_model, trg_pkey, trg_hash_col, src_load_timestamp, trg_load_timestamp) %}
+
+      {% elif test_name == "column_presence_and_types" %}
+        {% do column_presence_and_type(src_model, src_schema, test_id, test_config_id, trg_model, trg_schema) %}
+
+      {% endif %}
+      
+    {% elif test_type == "dim_scd2"%}
+
       {% do capture_and_update_latest_ts(src_filtered, src_model, src_load_timestamp) %}
 
-    {% elif test_name == 'scd_columns_check' %}
-      {% do scd_columns_check(src_model, test_id, test_config_id, src_schema, src_load_timestamp) %}
+      {% if test_name == "scd_dummy_records_exist" %}
+        {% do scd_dummy_records_exist(src_model, src_pkey, test_id, test_config_id, src_load_timestamp) %}
 
-    {% elif test_name == 'scd_unique_active_nkey' %}
-      {% do scd_unique_active_nkey(src_model, test_id, test_config_id, src_nkey, src_load_timestamp) %}
+      {% elif test_name == 'scd_columns_check' %}
+        {% do scd_columns_check(src_model, test_id, test_config_id, src_schema, src_load_timestamp) %}
 
-    {% elif test_name == 'scd_unique_surrogate_key' %}
-      {% do scd_unique_surrogate_key(src_model, test_id, test_config_id, src_skey, src_load_timestamp) %}
+      {% elif test_name == 'scd_unique_active_nkey' %}
+        {% do scd_unique_active_nkey(src_model, test_id, test_config_id, src_nkey, src_load_timestamp) %}
 
-    {% elif test_name == 'scd_inactive_historical_records' %}
-      {% do scd_inactive_historical_records(src_model, test_id, test_config_id, src_load_timestamp) %}
+      {% elif test_name == 'scd_unique_surrogate_key' %}
+        {% do scd_unique_surrogate_key(src_model, test_id, test_config_id, src_skey, src_load_timestamp) %}
 
-    {% elif test_name == "scd_not_null_surrogate_key" %}
-      {% do scd_not_null_surrogate_key(src_model, test_id, test_config_id, src_skey, src_load_timestamp) %}
+      {% elif test_name == 'scd_inactive_historical_records' %}
+        {% do scd_inactive_historical_records(src_model, test_id, test_config_id, src_load_timestamp) %}
 
-    {% elif test_name == 'scd_effective_before_expiry' %}
-      {% do scd_effective_before_expiry(src_model, test_id, test_config_id, src_load_timestamp) %}
+      {% elif test_name == "scd_not_null_surrogate_key" %}
+        {% do scd_not_null_surrogate_key(src_model, test_id, test_config_id, src_skey, src_load_timestamp) %}
 
-    {% elif test_name == 'scd_initial_active_state' %}
-      {% do scd_initial_active_state(src_model, test_id, test_config_id, src_load_timestamp) %}
+      {% elif test_name == 'scd_effective_before_expiry' %}
+        {% do scd_effective_before_expiry(src_model, test_id, test_config_id, src_load_timestamp) %}
 
-    {% elif test_name == "scd_initial_effective_date_set" %}
-      {% do scd_initial_effective_date_set(src_model, test_id, test_config_id, src_load_timestamp) %}
+      {% elif test_name == 'scd_initial_active_state' %}
+        {% do scd_initial_active_state(src_model, test_id, test_config_id, src_load_timestamp) %}
 
-    {% elif test_name == "scd_initial_expiry_is_null" %}
-      {% do scd_active_null_expiry(src_model, test_id, test_config_id, src_load_timestamp) %}
+      {% elif test_name == "scd_initial_effective_date_set" %}
+        {% do scd_initial_effective_date_set(src_model, test_id, test_config_id, src_load_timestamp) %}
 
-    {% elif test_name == "scd_active_null_expiry" %}
-      {% do scd_active_null_expiry(src_model, test_id, test_config_id, src_load_timestamp) %}
+      {% elif test_name == "scd_initial_expiry_is_null" %}
+        {% do scd_active_null_expiry(src_model, test_id, test_config_id, src_load_timestamp) %}
 
-    {% elif test_name == 'scd_no_scd2_valid_from_gaps' %}
-      {% do scd_no_scd2_valid_from_gaps(src_model, test_id, test_config_id, src_skey, src_load_timestamp) %}
+      {% elif test_name == "scd_active_null_expiry" %}
+        {% do scd_active_null_expiry(src_model, test_id, test_config_id, src_load_timestamp) %}
 
-    {% elif test_name == "scd_sequential_versions" %}
-      {% do scd_sequential_versions(src_model, test_id, test_config_id, src_skey, src_load_timestamp) %}
+      {% elif test_name == 'scd_no_scd2_valid_from_gaps' %}
+        {% do scd_no_scd2_valid_from_gaps(src_model, test_id, test_config_id, src_skey, src_load_timestamp) %}
 
-    {% elif test_name == "scd_not_null_active_natural_key" %}
-      {% do scd_not_null_active_natural_key(src_model, test_id, test_config_id, src_nkey, src_load_timestamp) %}
-    
-    {% elif test_name == "scd_sequential_versions" %}
-      {% do scd_sequential_versions(src_model, test_id, test_config_id, src_skey, src_load_timestamp) %}
+      {% elif test_name == "scd_sequential_versions" %}
+        {% do scd_sequential_versions(src_model, test_id, test_config_id, src_skey, src_load_timestamp) %}
+
+      {% elif test_name == "scd_not_null_active_natural_key" %}
+        {% do scd_not_null_active_natural_key(src_model, test_id, test_config_id, src_nkey, src_load_timestamp) %}
+      
+      {% elif test_name == "scd_sequential_versions" %}
+        {% do scd_sequential_versions(src_model, test_id, test_config_id, src_skey, src_load_timestamp) %}
+      {% endif %}
+
+    {# {% elif test_type == "Fact"%} #}
 
     {% else %}
       {% do invoke_macro(test_name, src_model, test_id, test_config_id, src_load_timestamp, trg_load_timestamp) %}

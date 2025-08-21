@@ -7,17 +7,17 @@
 
     {% set result = run_query(query) %}
 
-    {% set previous_process_ts = result.columns[0].values()[0] %}
-    {% set current_process_ts = result.columns[1].values()[0] %}
+    {% set hwm_from = result.columns[0].values()[0] %}
+    {% set hwm_to = result.columns[1].values()[0] %}
 
     {% if execute %}
-        {% set current_process_ts = result.columns[1].values()[0] %}
-        {% set previous_process_ts = result.columns[0].values()[0] %}
+        {% set hwm_to = result.columns[1].values()[0] %}
+        {% set hwm_from = result.columns[0].values()[0] %}
     {% else %}
-        {% set current_process_ts = '1900-01-01 00:00:00' %}
-        {% set previous_process_ts = '1900-01-01 00:00:00' %}
+        {% set hwm_to = '1900-01-01 00:00:00' %}
+        {% set hwm_from = '1900-01-01 00:00:00' %}
     {% endif %}
     
-    {{ return([previous_process_ts, current_process_ts]) }}
+    {{ return([hwm_from, hwm_to]) }}
 {% endmacro %}
 

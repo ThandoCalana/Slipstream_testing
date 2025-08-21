@@ -4,8 +4,8 @@
 
     {% set filtered = get_filtered_model(model_name, ts_col) %}
     {% set filtered_model = filtered[0] %}
-    {% set current_process_ts = filtered[1] %}
-    {% set previous_process_ts = filtered[2] %}
+    {% set hwm_to = filtered[1] %}
+    {% set hwm_from = filtered[2] %}
 
     {% set query %}
         SELECT CUSTOMER_ID, EFFECTIVE_DATE, EXPIRATION_DATE
@@ -25,6 +25,6 @@
 
     {% set result_description =  misordered_dates ~ ' misordered dates found' %}
 
-    {% do log_test_result(model_name, test_name, test_id, test_config_id, test_result, result_description, None, previous_process_ts, current_process_ts) %}
+    {% do log_test_result(model_name, test_name, test_id, test_config_id, test_result, result_description, None, hwm_from, hwm_to) %}
 
 {% endmacro %}

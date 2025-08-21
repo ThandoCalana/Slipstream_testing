@@ -9,15 +9,15 @@
     {% endset %}
 
     {% set result = run_query(query) %}
-    {% set max_ts = result.columns[0].values()[0] %}
+    {% set new_timestamp_value = result.columns[0].values()[0] %}
     
 
     {% set table_parts = full_table_name.split(".") %}
     {% set table_name = table_parts[2] %}
 
 
-    {% if max_ts is not none %}
-        {% do update_hwm(table_name, max_ts) %}
+    {% if new_timestamp_value is not none %}
+        {% do update_hwm(table_name, new_timestamp_value) %}
     {% endif %}
    
 {% endmacro %}
