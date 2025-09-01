@@ -9,18 +9,18 @@
         USING (
             SELECT
                 '{{ table_name }}' AS table_name,
-                target.current_process_ts AS previous_process_ts,
-                '{{ new_timestamp_value }}'::TIMESTAMP_NTZ AS current_process_ts
+                target.HWM_TO AS HWM_FROM,
+                '{{ new_timestamp_value }}'::TIMESTAMP_NTZ AS HWM_TO
             FROM AIRBNB.TESTING.HIGH_WATERMARK target
             WHERE table_name = '{{ table_name }}'
         ) AS source
         ON target.table_name = source.table_name
         WHEN MATCHED THEN
             UPDATE SET
-                previous_process_ts = target.current_process_ts,
-                current_process_ts = source.current_process_ts
+                HWM_FROM = target.HWM_TO,
+                HWM_TO = source.HWM_TO
         WHEN NOT MATCHED THEN
-            INSERT (table_name, previous_process_ts, current_process_ts)
+            INSERT (table_name, HWM_FROM, HWM_TO)
             VALUES ('{{ table_name }}', '1900-01-01 00:00:00', '{{ new_timestamp_value }}')
     {% endset %}
 

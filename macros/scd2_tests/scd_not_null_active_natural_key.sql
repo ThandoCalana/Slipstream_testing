@@ -1,4 +1,4 @@
-{% macro scd_not_null_active_natural_key(model_name, test_id, test_config_id, natural_key, ts_col) %}
+{% macro scd_not_null_active_natural_key(model_name, test_id, test_config_id, natural_key, ts_col, active_flag) %}
 
     {% set test_name = 'scd_not_null_active_natural_key' %}
 
@@ -10,7 +10,7 @@
     {% set query %}
         SELECT *
         FROM {{ filtered_model }}
-        WHERE IS_ACTIVE = TRUE
+        WHERE {{ active_flag }} = TRUE
           AND {{ natural_key }} IS NULL
     {% endset %}
 

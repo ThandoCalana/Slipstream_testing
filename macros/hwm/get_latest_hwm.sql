@@ -1,6 +1,6 @@
 {% macro get_latest_hwm(model_name) %}
     {% set query %}
-        SELECT PREVIOUS_PROCESS_TS, CURRENT_PROCESS_TS
+        SELECT HWM_FROM, HWM_TO
         FROM AIRBNB.TESTING.HIGH_WATERMARK
         WHERE TABLE_NAME = '{{ model_name }}'
     {% endset %}

@@ -1,4 +1,4 @@
-{% macro scd_active_null_expiry(model_name, test_id, test_config_id, ts_col) %}
+{% macro scd_active_null_expiry(model_name, test_id, test_config_id, ts_col, active_flag, expiration_date) %}
 
     {% set test_name = 'scd_active_null_expiry' %}
 
@@ -9,9 +9,9 @@
 
     {% set query %}
         SELECT *
-        FROM {{ filtered_model }} AS s
-        WHERE IS_ACTIVE = TRUE 
-        AND EXPIRATION_DATE IS NOT NULL
+        FROM {{ filtered_model }}
+        WHERE {{ active_flag }} = TRUE 
+        AND {{ expiration_date }} IS NOT NULL
     {% endset %}
 
     {% set result = run_query(query) %}

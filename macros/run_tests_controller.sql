@@ -1,11 +1,10 @@
 {% macro run_tests_controller() %}
 
-{% set configs_query %}
+  {% set configs_query %}
     SELECT
       config.TEST_CONFIG_ID,
       config.TEST_ID,
       metadata.TEST_NAME,
-      metadata.TEST_TYPE,
       src.TABLE_NAME   AS SRC_TABLE,
       src.TABLE_SCHEMA AS SRC_SCHEMA,
       src.DB_NAME AS SRC_DB,
@@ -17,6 +16,7 @@
       src.EFFECTIVE_DATE_COL_NAME AS SRC_EFFECTIVE_DATE,
       src.EXPIRATION_DATE_COL_NAME   AS SRC_EXPIRATION_DATE,
       src.LAYER_TYPE AS SRC_LAYER_TYPE,
+      src.IS_ACTIVE_COL_NAME AS SRC_IS_ACTIVE,
       config.TRG_ENTITY_ID,
       trg.TABLE_NAME   AS TRG_TABLE,
       trg.TABLE_SCHEMA AS TRG_SCHEMA,
@@ -43,10 +43,10 @@
     {% set test_config_id     = row['TEST_CONFIG_ID'] %}
     {% set test_id            = row['TEST_ID'] %}
     {% set test_name          = row['TEST_NAME'] %}
-    {% set test_type          = row['TEST_TYPE'] %}
     {% set src_model          = row['SRC_DB'] ~ '.' ~ row['SRC_SCHEMA'] ~ '.' ~ row['SRC_TABLE'] %}
-    {% set src_table          = row['SRC_TABLE'] %}
     {% set src_schema         = row['SRC_SCHEMA'] %}
+    {% set src_table          = row['SRC_TABLE'] %}
+    {% set src_is_active      = row['SRC_IS_ACTIVE'] %}
     {% set src_load_timestamp = row['SRC_LOAD_TIMESTAMP'] %}
     {% set trg_load_timestamp = row['TRG_LOAD_TIMESTAMP'] if row['TRG_LOAD_TIMESTAMP'] else NULL %}
     {% set src_nkey           = row['SRC_NKEY_COL'] %}
@@ -62,12 +62,13 @@
     {% set trg_hash_col       = row['TRG_HASH_COL'] if row['TRG_HASH_COL'] else NULL %}
     {% set trg_model          = (row['TRG_DB'] ~ '.' ~ row['TRG_SCHEMA'] ~ '.' ~ row['TRG_TABLE']) if row['TRG_TABLE'] else NULL %}
     {% set trg_table        = row['TRG_TABLE'] if row['TRG_TABLE'] else NULL %}
-    {% set trg_schema         = row['TRG_SCHEMA'] if row['TRG_SCHEMA'] else NULL %}
     {% set trg_effective_date = row['TRG_EFFECTIVE_DATE'] if row['TRG_EFFECTIVE_DATE'] else NULL %}
     {% set trg_expiration_date = row['TRG_EXPIRATION_DATE'] if row['TRG_EXPIRATION_DATE'] else NULL %}
     {% set trg_layer              = row['TRG_LAYER_TYPE'] if row['TRG_LAYER_TYPE'] else NULL %}
 
     {% do log("Running test: " ~ test_name ~ " on " ~ src_model ~ " (Config ID: " ~ test_config_id ~ ")", info=True) %}
+
+    {% do capture_and_update_latest_ts  %}
 
     {% set src_filtered = get_filtered_model(src_model, src_load_timestamp)[0] %}
     {% set trg_filtered = get_filtered_model(trg_model, trg_load_timestamp)[0] if trg_model else NULL %}
@@ -117,40 +118,31 @@
         {% do scd_columns_check(src_model, test_id, test_config_id, src_schema, src_load_timestamp) %}
 
       {% elif test_name == 'scd_unique_active_nkey' %}
-        {% do scd_unique_active_nkey(src_model, test_id, test_config_id, src_nkey, src_load_timestamp) %}
+        {% do scd_unique_active_nkey(src_model, test_id, test_config_id, src_nkey, src_load_timestamp, src_is_active) %}
 
       {% elif test_name == 'scd_unique_surrogate_key' %}
         {% do scd_unique_surrogate_key(src_model, test_id, test_config_id, src_skey, src_load_timestamp) %}
 
       {% elif test_name == 'scd_inactive_historical_records' %}
-        {% do scd_inactive_historical_records(src_model, test_id, test_config_id, src_load_timestamp) %}
+        {% do scd_inactive_historical_records(src_model, test_id, test_config_id, src_load_timestamp, src_is_active, src_expiration_date) %}
 
       {% elif test_name == "scd_not_null_surrogate_key" %}
         {% do scd_not_null_surrogate_key(src_model, test_id, test_config_id, src_skey, src_load_timestamp) %}
 
       {% elif test_name == 'scd_effective_before_expiry' %}
-        {% do scd_effective_before_expiry(src_model, test_id, test_config_id, src_load_timestamp) %}
-
-      {% elif test_name == 'scd_initial_active_state' %}
-        {% do scd_initial_active_state(src_model, test_id, test_config_id, src_load_timestamp) %}
-
-      {% elif test_name == "scd_initial_effective_date_set" %}
-        {% do scd_initial_effective_date_set(src_model, test_id, test_config_id, src_load_timestamp) %}
-
-      {% elif test_name == "scd_initial_expiry_is_null" %}
-        {% do scd_active_null_expiry(src_model, test_id, test_config_id, src_load_timestamp) %}
+        {% do scd_effective_before_expiry(src_model, src_nkey, test_id, test_config_id, src_load_timestamp, src_effective_date, src_expiration_date) %}
 
       {% elif test_name == "scd_active_null_expiry" %}
-        {% do scd_active_null_expiry(src_model, test_id, test_config_id, src_load_timestamp) %}
+        {% do scd_active_null_expiry(src_model, test_id, test_config_id, src_load_timestamp, src_is_active, src_expiration_date) %}
 
-      {% elif test_name == 'scd_no_scd2_valid_from_gaps' %}
-        {% do scd_no_scd2_valid_from_gaps(src_model, test_id, test_config_id, src_skey, src_load_timestamp) %}
+      {% elif test_name == 'scd_no_scd2_effective_date_gaps' %}
+        {% do scd_no_scd2_effective_date_gaps(src_model, test_id, test_config_id, src_skey, src_load_timestamp, src_effective_date, src_expiration_date) %}
 
       {% elif test_name == "scd_sequential_versions" %}
         {% do scd_sequential_versions(src_model, test_id, test_config_id, src_skey, src_load_timestamp) %}
 
       {% elif test_name == "scd_not_null_active_natural_key" %}
-        {% do scd_not_null_active_natural_key(src_model, test_id, test_config_id, src_nkey, src_load_timestamp) %}
+        {% do scd_not_null_active_natural_key(src_model, test_id, test_config_id, src_nkey, src_load_timestamp, src_is_active) %}
       
       {% elif test_name == "scd_sequential_versions" %}
         {% do scd_sequential_versions(src_model, test_id, test_config_id, src_skey, src_load_timestamp) %}

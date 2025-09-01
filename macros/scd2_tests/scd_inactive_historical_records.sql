@@ -1,4 +1,4 @@
-{% macro scd_inactive_historical_records(model_name, test_id, test_config_id) %}
+{% macro scd_inactive_historical_records(model_name, test_id, test_config_id, active_flag, expiration_date) %}
 
     {% set test_name = 'scd_inactive_historical_records' %}
 
@@ -10,9 +10,9 @@
     {% set query %}
         SELECT *
         FROM {{ filtered_model }}
-        WHERE IS_ACTIVE = TRUE AND
-            ( EXPIRATION_DATE IS NOT NULL
-            AND EXPIRATION_DATE < CURRENT_TIMESTAMP() )
+        WHERE {{ active_flag }} = TRUE AND
+            ( {{ expiration_date }} IS NOT NULL
+            AND {{ expiration_date }} < CURRENT_TIMESTAMP() )
     {% endset %}
 
     {% set result = run_query(query) %}

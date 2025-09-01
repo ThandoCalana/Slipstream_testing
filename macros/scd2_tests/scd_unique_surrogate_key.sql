@@ -9,7 +9,7 @@
 
     {% set query %}
         SELECT {{ surrogate_key }},
-        COUNT({{ surrogate_key }}) AS key_count
+        COUNT( {{ surrogate_key }} ) AS key_count
         FROM {{ filtered_model }}
         GROUP BY {{ key }}
         HAVING key_count > 1

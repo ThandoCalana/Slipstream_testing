@@ -1,4 +1,4 @@
-{% macro scd_effective_before_expiry(model_name, test_id, test_config_id, ts_col) %}
+{% macro scd_effective_before_expiry(model_name, natural_key, test_id, test_config_id, ts_col, effective_date, expiration_date) %}
 
     {% set test_name = 'scd_effective_before_expiry' %}
 
@@ -8,10 +8,10 @@
     {% set hwm_from = filtered[2] %}
 
     {% set query %}
-        SELECT CUSTOMER_ID, EFFECTIVE_DATE, EXPIRATION_DATE
+        SELECT {{ natural_key }}, {{ effective_date }}, {{ expiration_date }}
         FROM {{ filtered_model }}
-        WHERE EFFECTIVE_DATE > EXPIRATION_DATE
-        AND EXPIRATION_DATE IS NOT NULL
+        WHERE {{ effective_date }} > {{ expiration_date }}
+        AND {{ expiration_date }} IS NOT NULL
     {% endset %}
 
     {% set result = run_query(query) %}

@@ -1,4 +1,4 @@
-{% macro scd_unique_active_nkey(model_name, test_id, test_config_id, natural_key, ts_col) %}
+{% macro scd_unique_active_nkey(model_name, test_id, test_config_id, natural_key, ts_col, active_flag ) %}
 
     {% set test_name = 'scd_unique_active_nkey' %}
 
@@ -10,7 +10,7 @@
     {% set query %}
         SELECT {{ natural_key }}
         FROM {{ filtered_model }}
-        WHERE IS_ACTIVE = TRUE
+        WHERE {{ active_flag }} = TRUE
         GROUP BY {{ natural_key }}
         HAVING COUNT({{ natural_key }}) > 1
     {% endset %}

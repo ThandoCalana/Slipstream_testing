@@ -1,4 +1,4 @@
-{% macro scd_no_scd2_effective_date_gaps(model_name, test_id, test_config_id, natural_key, ts_col) %}
+{% macro scd_no_scd2_effective_date_gaps(model_name, test_id, test_config_id, natural_key, ts_col, effective_date, expiration_date) %}
 
     {% set test_name = 'scd_no_scd2_effective_date_gaps' %}
 
@@ -11,8 +11,8 @@
         SELECT * 
         FROM (
             SELECT {{ natural_key }},
-                   EXPIRATION_DATE AS PREV_END,
-                   LEAD(EFFECTIVE_DATE) OVER (PARTITION BY {{ natural_key }} ORDER BY EFFECTIVE_DATE) AS NEXT_START
+                   {{ expiration_date }} AS PREV_END,
+                   LEAD( {{ effective_date }} ) OVER ( PARTITION BY {{ natural_key }} ORDER BY {{ effective_date }} ) AS NEXT_START
             FROM {{ filtered_model }}
         ) GAP
         WHERE PREV_END IS NOT NULL 

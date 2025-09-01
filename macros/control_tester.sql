@@ -1,4 +1,4 @@
-{% macro control_tester(test_name_to_run='scd_dummy_records_exist') %}
+{% macro control_tester(test_name_to_run='row_count_match') %}
 
   {% set configs_query %}
     SELECT
@@ -16,6 +16,7 @@
       src.EFFECTIVE_DATE_COL_NAME AS SRC_EFFECTIVE_DATE,
       src.EXPIRATION_DATE_COL_NAME   AS SRC_EXPIRATION_DATE,
       src.LAYER_TYPE AS SRC_LAYER_TYPE,
+      src.IS_ACTIVE_COL_NAME AS SRC_IS_ACTIVE,
       config.TRG_ENTITY_ID,
       trg.TABLE_NAME   AS TRG_TABLE,
       trg.TABLE_SCHEMA AS TRG_SCHEMA,
@@ -37,7 +38,11 @@
   {% endset %}
 
   {% set configs = run_query(configs_query) %}
-
+  {% for row in configs.rows %}
+    {{ log(row['SRC_TABLE'], info=True)}}
+  
+  {% endfor %}
+  {#
   {% for row in configs.rows %}
     {% set test_config_id     = row['TEST_CONFIG_ID'] %}
     {% set test_id            = row['TEST_ID'] %}
@@ -45,6 +50,7 @@
     {% set src_model          = row['SRC_DB'] ~ '.' ~ row['SRC_SCHEMA'] ~ '.' ~ row['SRC_TABLE'] %}
     {% set src_schema         = row['SRC_SCHEMA'] %}
     {% set src_table          = row['SRC_TABLE'] %}
+    {% set src_is_active      = row['SRC_IS_ACTIVE'] %}
     {% set src_load_timestamp = row['SRC_LOAD_TIMESTAMP'] %}
     {% set trg_load_timestamp = row['TRG_LOAD_TIMESTAMP'] if row['TRG_LOAD_TIMESTAMP'] else NULL %}
     {% set src_nkey           = row['SRC_NKEY_COL'] %}
@@ -59,28 +65,26 @@
     {% set trg_skey           = row['TRG_SKEY_COL'] if row['TRG_SKEY_COL'] else NULL %}
     {% set trg_hash_col       = row['TRG_HASH_COL'] if row['TRG_HASH_COL'] else NULL %}
     {% set trg_model          = (row['TRG_DB'] ~ '.' ~ row['TRG_SCHEMA'] ~ '.' ~ row['TRG_TABLE']) if row['TRG_TABLE'] else NULL %}
-    {% set trg_table        = row['TRG_TABLE'] if row['TRG_TABLE'] else NULL %}
+    {% set trg_table          = row['TRG_TABLE'] if row['TRG_TABLE'] else NULL %}
     {% set trg_effective_date = row['TRG_EFFECTIVE_DATE'] if row['TRG_EFFECTIVE_DATE'] else NULL %}
     {% set trg_expiration_date = row['TRG_EXPIRATION_DATE'] if row['TRG_EXPIRATION_DATE'] else NULL %}
     {% set trg_layer              = row['TRG_LAYER_TYPE'] if row['TRG_LAYER_TYPE'] else NULL %}
 
     {% do log("Running test: " ~ test_name ~ " on " ~ src_model ~ " (Config ID: " ~ test_config_id ~ ")", info=True) %}
     
-    {% set src_filtered = get_filtered_model(src_model, src_load_timestamp)[0] %}
-    {% set trg_filtered = get_filtered_model(trg_model, trg_load_timestamp)[0] if trg_model else NULL %}
+     {% do capture_and_update_latest_ts(src_model, src_load_timestamp) %}
 
-    {% if test_name == "scd_dummy_records_exist" %}
-      {% do scd_dummy_records_exist(src_model, src_pkey, test_id, test_config_id) %}
-    
-      {% do capture_and_update_latest_ts(src_filtered, src_model, src_load_timestamp) %}
-      
-      {% if trg_model %}
-        {% do capture_and_update_latest_ts(trg_filtered, trg_model, trg_load_timestamp) %}
+     {% if trg_model %}
+        {% do capture_and_update_latest_ts(trg_model, trg_load_timestamp) %}
       {% endif %}
-      
-    {% endif %}
 
-  {% endfor %}
+    {% if test_name == "row_count_match" %}
+      {% do row_count_match(src_model, test_id, test_config_id, trg_model, src_load_timestamp, trg_load_timestamp) %}
+       
+    {% endif %}
+    
+
+  {% endfor %} #}
 
 {% endmacro %}
 
