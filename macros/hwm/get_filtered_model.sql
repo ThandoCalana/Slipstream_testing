@@ -1,12 +1,18 @@
-{% macro get_filtered_model(model_name, timestamp_name) %}
+{% macro get_filtered_model(src_model_name, src_timestamp_col_name, trg_model_name=None) %}
 
-    {% set table_parts = model_name.split(".") %}
-    {% set table_name = table_parts[2] %}
+    {% if trg_model_name %}
 
-    {% set hwm_from = get_latest_hwm(table_name)[0] %}
-    {% set hwm_to = get_latest_hwm(table_name)[1] %}
+        {% set hwm_from = get_latest_hwm(trg_model_name)[0] %}
+        {% set hwm_to = get_latest_hwm(trg_model_name)[1] %}
 
+    {% else %}
+
+        {% set hwm_from = get_latest_hwm(src_model_name)[0] %}
+        {% set hwm_to = get_latest_hwm(src_model_name)[1] %}
     
-    {{ return([model_name ~
-              " WHERE " ~ timestamp_name ~ " BETWEEN TO_TIMESTAMP_NTZ('" ~ hwm_from ~ "') AND " ~ " TO_TIMESTAMP_NTZ('" ~ hwm_to ~ "')", hwm_from, hwm_to]) }}
+    {% endif %}
+
+
+    {{ return([src_model_name ~
+              " WHERE " ~ src_timestamp_col_name ~ " BETWEEN TO_TIMESTAMP_NTZ('" ~ hwm_from ~ "') AND " ~ "TO_TIMESTAMP_NTZ('" ~ hwm_to ~ "')", hwm_from, hwm_to]) }}
 {% endmacro %}

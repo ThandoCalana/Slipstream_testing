@@ -1,10 +1,61 @@
-{% macro run_tests_controller() %}
+{% macro scd_tests_controller() %}
+
+{# This is the controller macro, which facilitates the overall functioning of the tests. It iterates
+over the test_config table, and based on the information from each row, it runs the relevant test using the config it received. 
+The high watermark table is also updated on each run for each table, to allow for the sectioning of data such that only the 
+latest data that has been processed gets tested. #}
+
+{# The following block updates the high watermark values for the unique tables to be tested. #}
+
+  {% set unique_tables_query %}
+
+    SELECT DISTINCT
+      src.ENTITY_ID,
+      src.DB_NAME || '.' || src.TABLE_SCHEMA || '.' || src.TABLE_NAME AS SRC_MODEL,
+      src.PROCESS_TIME_COL_NAME AS SRC_LOAD_TIMESTAMP,
+      trg.DB_NAME || '.' || trg.TABLE_SCHEMA || '.' || trg.TABLE_NAME AS TRG_MODEL,
+      trg.PROCESS_TIME_COL_NAME AS TRG_LOAD_TIMESTAMP
+    FROM AIRBNB.TESTING.TEST_CONFIG config
+    JOIN AIRBNB.TESTING.TEST_METADATA metadata ON config.TEST_ID = metadata.TEST_ID
+    JOIN AIRBNB.TESTING.ENTITY_METADATA src ON config.SRC_ENTITY_ID = src.ENTITY_ID
+    LEFT JOIN AIRBNB.TESTING.ENTITY_METADATA trg ON config.TRG_ENTITY_ID = trg.ENTITY_ID
+    WHERE config.is_active = TRUE
+
+  {% endset %}
+
+  {% set unique_tables = run_query(unique_tables_query) %}
+  
+  {{ log("Updating HWM for " ~ unique_tables.rows | length ~ " unique tables before running tests", info=True) }}
+
+  {% for table_row in unique_tables.rows %}
+    {% set src_model = table_row['SRC_MODEL'] %}
+    {% set trg_model = table_row['TRG_MODEL'] %}
+    {% set src_load_timestamp = table_row['SRC_LOAD_TIMESTAMP'] %}
+    {% set trg_load_timestamp = table_row['TRG_LOAD_TIMESTAMP'] if table_row['TRG_LOAD_TIMESTAMP'] else NULL %}
+    
+    {% if trg_model %}
+
+      {% do capture_and_update_latest_ts(src_model, src_load_timestamp, trg_model, trg_load_timestamp) %}
+    
+    {% else %}
+
+      {% do capture_and_update_latest_ts(src_model, src_load_timestamp) %}
+
+    {% endif %}
+
+    {{ log("Updated HWM for: " ~ src_model, info=True) }}
+
+  {% endfor %}
+
+  {# This query joins the config table with other releveant tables to get all the information needed
+  for the config of any test to be run. #}
 
   {% set configs_query %}
     SELECT
       config.TEST_CONFIG_ID,
       config.TEST_ID,
-      metadata.TEST_NAME,
+      metadata.TEST_NAME AS TEST_NAME,
+      metadata.TEST_TYPE AS TEST_TYPE,
       src.TABLE_NAME   AS SRC_TABLE,
       src.TABLE_SCHEMA AS SRC_SCHEMA,
       src.DB_NAME AS SRC_DB,
@@ -12,7 +63,7 @@
       src.PKEY_COL_NAME AS SRC_PKEY_COL,
       src.SKEY_COL_NAME AS SRC_SKEY_COL,
       src.HASH_COL_NAME AS SRC_HASH_COL,
-      src.TIMESTAMP_COL_NAME AS SRC_LOAD_TIMESTAMP,
+      src.PROCESS_TIME_COL_NAME AS SRC_LOAD_TIMESTAMP,
       src.EFFECTIVE_DATE_COL_NAME AS SRC_EFFECTIVE_DATE,
       src.EXPIRATION_DATE_COL_NAME   AS SRC_EXPIRATION_DATE,
       src.LAYER_TYPE AS SRC_LAYER_TYPE,
@@ -26,23 +77,25 @@
       trg.PKEY_COL_NAME AS TRG_PKEY_COL,
       trg.SKEY_COL_NAME AS TRG_SKEY_COL,
       trg.HASH_COL_NAME AS TRG_HASH_COL,
-      trg.TIMESTAMP_COL_NAME AS TRG_LOAD_TIMESTAMP,
+      trg.PROCESS_TIME_COL_NAME AS TRG_LOAD_TIMESTAMP,
       trg.EFFECTIVE_DATE_COL_NAME AS TRG_EFFECTIVE_DATE,
-      trg.EXPIRATION_DATE_COL_NAME   AS TRG_EXPIRATION_DATE,     
+      trg.EXPIRATION_DATE_COL_NAME   AS TRG_EXPIRATION_DATE     
     FROM AIRBNB.TESTING.TEST_CONFIG config
     JOIN AIRBNB.TESTING.TEST_METADATA metadata ON config.TEST_ID = metadata.TEST_ID
     JOIN AIRBNB.TESTING.ENTITY_METADATA src ON config.SRC_ENTITY_ID = src.ENTITY_ID
     LEFT JOIN AIRBNB.TESTING.ENTITY_METADATA trg ON config.TRG_ENTITY_ID = trg.ENTITY_ID
     WHERE config.is_active = TRUE
-      AND metadata.TEST_NAME = '{{ test_name_to_run }}'
   {% endset %}
 
   {% set configs = run_query(configs_query) %}
+
+  {# This block stores values from the row config, which will be used later as arguments to be passed into the tests #}
 
   {% for row in configs.rows %}
     {% set test_config_id     = row['TEST_CONFIG_ID'] %}
     {% set test_id            = row['TEST_ID'] %}
     {% set test_name          = row['TEST_NAME'] %}
+    {% set test_type          = row['TEST_TYPE'] %}
     {% set src_model          = row['SRC_DB'] ~ '.' ~ row['SRC_SCHEMA'] ~ '.' ~ row['SRC_TABLE'] %}
     {% set src_schema         = row['SRC_SCHEMA'] %}
     {% set src_table          = row['SRC_TABLE'] %}
@@ -60,22 +113,20 @@
     {% set trg_pkey           = row['TRG_PKEY_COL'] %}
     {% set trg_skey           = row['TRG_SKEY_COL'] if row['TRG_SKEY_COL'] else NULL %}
     {% set trg_hash_col       = row['TRG_HASH_COL'] if row['TRG_HASH_COL'] else NULL %}
-    {% set trg_model          = (row['TRG_DB'] ~ '.' ~ row['TRG_SCHEMA'] ~ '.' ~ row['TRG_TABLE']) if row['TRG_TABLE'] else NULL %}
+    {% set trg_model          = row['TRG_DB'] ~ '.' ~ row['TRG_SCHEMA'] ~ '.' ~ row['TRG_TABLE'] if row['TRG_TABLE'] else NULL %}
     {% set trg_table        = row['TRG_TABLE'] if row['TRG_TABLE'] else NULL %}
     {% set trg_effective_date = row['TRG_EFFECTIVE_DATE'] if row['TRG_EFFECTIVE_DATE'] else NULL %}
     {% set trg_expiration_date = row['TRG_EXPIRATION_DATE'] if row['TRG_EXPIRATION_DATE'] else NULL %}
     {% set trg_layer              = row['TRG_LAYER_TYPE'] if row['TRG_LAYER_TYPE'] else NULL %}
 
-    {% do log("Running test: " ~ test_name ~ " on " ~ src_model ~ " (Config ID: " ~ test_config_id ~ ")", info=True) %}
-
-    {% do capture_and_update_latest_ts  %}
-
-    {% set src_filtered = get_filtered_model(src_model, src_load_timestamp)[0] %}
-    {% set trg_filtered = get_filtered_model(trg_model, trg_load_timestamp)[0] if trg_model else NULL %}
+    {% if trg_model %}
+      {% do log("Running test: " ~ test_name ~ " on " ~ src_model ~ " compared to " ~ trg_model ~ " (Config ID: " ~ test_config_id ~ ")", info=True) %}
+    {% else %}
+      {% do log("Running test: " ~ test_name ~ " on " ~ src_model ~ " (Config ID: " ~ test_config_id ~ ")", info=True) %}
+    {% endif %}
 
     {% if test_type == "1-1" %}
-      {% do capture_and_update_latest_ts(src_filtered, src_model, src_load_timestamp) %}
-
+      
       {% if test_name == "row_count_match" %}
         {% do row_count_match(src_model, test_id, test_config_id, trg_model, src_load_timestamp, trg_load_timestamp) %}
       
@@ -108,8 +159,6 @@
       {% endif %}
       
     {% elif test_type == "dim_scd2"%}
-
-      {% do capture_and_update_latest_ts(src_filtered, src_model, src_load_timestamp) %}
 
       {% if test_name == "scd_dummy_records_exist" %}
         {% do scd_dummy_records_exist(src_model, src_pkey, test_id, test_config_id, src_load_timestamp) %}
@@ -144,11 +193,7 @@
       {% elif test_name == "scd_not_null_active_natural_key" %}
         {% do scd_not_null_active_natural_key(src_model, test_id, test_config_id, src_nkey, src_load_timestamp, src_is_active) %}
       
-      {% elif test_name == "scd_sequential_versions" %}
-        {% do scd_sequential_versions(src_model, test_id, test_config_id, src_skey, src_load_timestamp) %}
       {% endif %}
-
-    {# {% elif test_type == "Fact"%} #}
 
     {% else %}
       {% do invoke_macro(test_name, src_model, test_id, test_config_id, src_load_timestamp, trg_load_timestamp) %}
@@ -157,7 +202,7 @@
 
 {% endmacro %}
 
-{% macro invoke_macro(macro_name, model_name, test_id, test_config_id) %}
+{% macro invoke_macro(test_name, src_model, test_id, test_config_id, src_load_timestamp, trg_load_timestamp) %}
   {% if macro_name in context %}
     {% do context[macro_name](model_name, test_id, test_config_id) %}
   {% else %}

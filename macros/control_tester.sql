@@ -1,10 +1,11 @@
 {% macro control_tester(test_name_to_run='row_count_match') %}
 
-  {% set configs_query %}
+    {% set configs_query %}
     SELECT
       config.TEST_CONFIG_ID,
       config.TEST_ID,
-      metadata.TEST_NAME,
+      metadata.TEST_NAME AS TEST_NAME,
+      metadata.TEST_TYPE AS TEST_TYPE,
       src.TABLE_NAME   AS SRC_TABLE,
       src.TABLE_SCHEMA AS SRC_SCHEMA,
       src.DB_NAME AS SRC_DB,
@@ -12,7 +13,7 @@
       src.PKEY_COL_NAME AS SRC_PKEY_COL,
       src.SKEY_COL_NAME AS SRC_SKEY_COL,
       src.HASH_COL_NAME AS SRC_HASH_COL,
-      src.TIMESTAMP_COL_NAME AS SRC_LOAD_TIMESTAMP,
+      src.PROCESS_TIME_COL_NAME AS SRC_LOAD_TIMESTAMP,
       src.EFFECTIVE_DATE_COL_NAME AS SRC_EFFECTIVE_DATE,
       src.EXPIRATION_DATE_COL_NAME   AS SRC_EXPIRATION_DATE,
       src.LAYER_TYPE AS SRC_LAYER_TYPE,
@@ -26,27 +27,24 @@
       trg.PKEY_COL_NAME AS TRG_PKEY_COL,
       trg.SKEY_COL_NAME AS TRG_SKEY_COL,
       trg.HASH_COL_NAME AS TRG_HASH_COL,
-      trg.TIMESTAMP_COL_NAME AS TRG_LOAD_TIMESTAMP,
+      trg.PROCESS_TIME_COL_NAME AS TRG_LOAD_TIMESTAMP,
       trg.EFFECTIVE_DATE_COL_NAME AS TRG_EFFECTIVE_DATE,
-      trg.EXPIRATION_DATE_COL_NAME   AS TRG_EXPIRATION_DATE,     
+      trg.EXPIRATION_DATE_COL_NAME   AS TRG_EXPIRATION_DATE     
     FROM AIRBNB.TESTING.TEST_CONFIG config
     JOIN AIRBNB.TESTING.TEST_METADATA metadata ON config.TEST_ID = metadata.TEST_ID
     JOIN AIRBNB.TESTING.ENTITY_METADATA src ON config.SRC_ENTITY_ID = src.ENTITY_ID
     LEFT JOIN AIRBNB.TESTING.ENTITY_METADATA trg ON config.TRG_ENTITY_ID = trg.ENTITY_ID
     WHERE config.is_active = TRUE
-      AND metadata.TEST_NAME = '{{ test_name_to_run }}'
+    AND metadata.TEST_NAME = '{{ test_name_to_run }}'
   {% endset %}
 
   {% set configs = run_query(configs_query) %}
-  {% for row in configs.rows %}
-    {{ log(row['SRC_TABLE'], info=True)}}
   
-  {% endfor %}
-  {#
   {% for row in configs.rows %}
     {% set test_config_id     = row['TEST_CONFIG_ID'] %}
     {% set test_id            = row['TEST_ID'] %}
     {% set test_name          = row['TEST_NAME'] %}
+    {% set test_type          = row['TEST_TYPE'] %}
     {% set src_model          = row['SRC_DB'] ~ '.' ~ row['SRC_SCHEMA'] ~ '.' ~ row['SRC_TABLE'] %}
     {% set src_schema         = row['SRC_SCHEMA'] %}
     {% set src_table          = row['SRC_TABLE'] %}
@@ -70,21 +68,21 @@
     {% set trg_expiration_date = row['TRG_EXPIRATION_DATE'] if row['TRG_EXPIRATION_DATE'] else NULL %}
     {% set trg_layer              = row['TRG_LAYER_TYPE'] if row['TRG_LAYER_TYPE'] else NULL %}
 
-    {% do log("Running test: " ~ test_name ~ " on " ~ src_model ~ " (Config ID: " ~ test_config_id ~ ")", info=True) %}
-    
-     {% do capture_and_update_latest_ts(src_model, src_load_timestamp) %}
+    {% if trg_model %}
+      {% do log("Running test: " ~ test_name ~ " on " ~ src_model ~ " compared to " ~ trg_model ~ " (Config ID: " ~ test_config_id ~ ")", info=True) %}
+    {% else %}
+      {% do log("Running test: " ~ test_name ~ " on " ~ src_model ~ " (Config ID: " ~ test_config_id ~ ")", info=True) %}
+    {% endif %}
 
-     {% if trg_model %}
-        {% do capture_and_update_latest_ts(trg_model, trg_load_timestamp) %}
+    {% if test_type == "1-1" %}
+
+      {% if test_name == "row_count_match" %}
+        {% do row_count_match(src_model, test_id, test_config_id, trg_model, src_load_timestamp, trg_load_timestamp) %}
       {% endif %}
-
-    {% if test_name == "row_count_match" %}
-      {% do row_count_match(src_model, test_id, test_config_id, trg_model, src_load_timestamp, trg_load_timestamp) %}
        
     {% endif %}
-    
 
-  {% endfor %} #}
+  {% endfor %}
 
 {% endmacro %}
 
